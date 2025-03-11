@@ -7,6 +7,7 @@ pub enum TextStyling {
     Bold,
     Italic,
     Underline,
+    Link,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,9 @@ impl TextStyle {
                 TextStyling::Bold => style.bold(),
                 TextStyling::Italic => style.italic(),
                 TextStyling::Underline => style.underline(),
+                TextStyling::Link => style
+                    .underline()
+                    .underline_color(Some(Color::Rgb(RgbColor(0, 0, 255)))),
             };
 
             current = styling.enclosing.as_ref().map(|s| s.as_ref());
@@ -139,6 +143,12 @@ impl CliTreeRenderer {
                     self.current_style = enclosing_style;
                 }
                 "a" => {
+                    let enclosing = self.current_style.take();
+                    self.current_style.replace(Box::new(TextStyle {
+                        enclosing,
+                        styling: TextStyling::Link,
+                    }));
+
                     let href = attributes
                         .iter()
                         .find(|(name, _)| name == "href")
@@ -153,6 +163,9 @@ impl CliTreeRenderer {
                     let contents = String::from_utf8_lossy(&buf).into_owned();
 
                     write!(f, "{}", Link::new(&contents, href))?;
+
+                    let enclosing_style = self.current_style.take().unwrap().enclosing;
+                    self.current_style = enclosing_style;
                 }
                 "head" => {
                     for node in children {
