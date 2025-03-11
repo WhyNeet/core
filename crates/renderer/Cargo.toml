@@ -1,8 +1,7 @@
 [package]
-name = "engine"
+name = "renderer"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-lol_html = "2.2.0"
 tree = { path = "../tree" }

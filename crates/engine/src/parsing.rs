@@ -1,61 +1,93 @@
-use quick_xml::{Reader, events::Event};
+use std::{cell::RefCell, rc::Rc};
 
-pub enum ReadContext {
-    Readable(Option<Box<ReadContext>>),
-    Unreadable(Option<Box<ReadContext>>),
+use lol_html::{HtmlRewriter, Settings, doc_text, element, html_content::Element};
+use tree::TreeNode;
+
+pub struct AstBuilder {
+    root: Vec<TreeNode>,
+    stack: Vec<TreeNode>,
 }
 
-impl ReadContext {
-    pub fn root(self) -> Option<Box<ReadContext>> {
-        match self {
-            Self::Readable(root) => root,
-            Self::Unreadable(root) => root,
+impl AstBuilder {
+    pub fn new() -> Self {
+        Self {
+            root: Vec::new(),
+            stack: Vec::new(),
         }
     }
 
-    pub fn is_readable(&self) -> bool {
-        match self {
-            Self::Readable(_) => true,
-            _ => false,
+    pub fn node_start(&mut self, node: TreeNode) {
+        self.stack.push(node);
+    }
+
+    pub fn node_end(&mut self) {
+        let node = self.stack.pop().unwrap();
+        if let Some(TreeNode::Node { children, .. }) = self.stack.last_mut() {
+            children.push(node);
+        } else {
+            self.root.push(node);
+        }
+    }
+
+    pub fn push_node(&mut self, node: TreeNode) {
+        if let Some(TreeNode::Node { children, .. }) = self.stack.last_mut() {
+            children.push(node);
+        } else {
+            self.root.push(node);
         }
     }
 }
 
-pub fn parse_document(document: &str) -> Vec<String> {
-    let mut reader = Reader::from_str(document);
-    reader.config_mut().trim_text(true);
+pub struct DocumentParser<'a> {
+    input: &'a str,
+}
 
-    let mut buf = vec![];
-    let mut texts = vec![];
-
-    let mut read_cx = Box::new(ReadContext::Unreadable(None));
-
-    loop {
-        match reader.read_event_into(&mut buf) {
-            Err(e) => panic!("an error occured [:{}]: {:?}", reader.error_position(), e),
-            Ok(Event::Eof) => break,
-            Ok(Event::Start(e)) => match e.name().as_ref() {
-                b"link" | b"head" | b"script" => {
-                    read_cx = Box::new(ReadContext::Unreadable(Some(read_cx)))
-                }
-                b"div" | b"p" | b"h1" | b"h2" | b"a" => {
-                    read_cx = Box::new(ReadContext::Readable(Some(read_cx)))
-                }
-                _ => read_cx = Box::new(ReadContext::Unreadable(Some(read_cx))),
-            },
-
-            Ok(Event::Text(e)) => {
-                if read_cx.is_readable() {
-                    texts.push(e.unescape().unwrap().into_owned());
-                }
-            }
-            Ok(Event::End(e)) => match e.name().as_ref() {
-                _ => read_cx = read_cx.root().unwrap(),
-            },
-            _ => (),
-        }
-        buf.clear();
+impl<'a> DocumentParser<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self { input }
     }
 
-    texts
+    pub fn parse_document(&mut self) -> Vec<TreeNode> {
+        let builder = Rc::new(RefCell::new(AstBuilder::new()));
+
+        let mut output = vec![];
+
+        let mut rewriter = HtmlRewriter::new(
+            Settings {
+                element_content_handlers: vec![element!("*", |el: &mut Element| {
+                    let node = TreeNode::Node {
+                        name: el.tag_name(),
+                        attributes: vec![],
+                        children: vec![],
+                    };
+
+                    builder.borrow_mut().node_start(node);
+
+                    if let Some(handlers) = el.end_tag_handlers() {
+                        let builder = Rc::clone(&builder);
+                        handlers.push(Box::new(move |_| {
+                            builder.borrow_mut().node_end();
+                            Ok(())
+                        }));
+                    } else {
+                        builder.borrow_mut().node_end();
+                    }
+
+                    Ok(())
+                })],
+                document_content_handlers: vec![doc_text!(|t| {
+                    builder
+                        .borrow_mut()
+                        .push_node(TreeNode::Text(t.as_str().to_string()));
+                    Ok(())
+                })],
+                ..Default::default()
+            },
+            |c: &[u8]| output.extend_from_slice(c), // No output needed since we're building an AST
+        );
+
+        rewriter.write(self.input.as_bytes()).unwrap();
+
+        builder.replace(AstBuilder::new()).root
+    }
 }
