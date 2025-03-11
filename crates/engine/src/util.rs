@@ -4,7 +4,7 @@ pub fn strip_text_indent(s: &str) -> String {
             let result = if line.starts_with('\n') {
                 line.strip_prefix('\n').unwrap().trim()
             } else {
-                line.trim()
+                line.trim_start()
             };
 
             if result.len() == line.len() {

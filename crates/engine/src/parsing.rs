@@ -92,7 +92,7 @@ impl<'a> DocumentParser<'a> {
                 })],
                 ..Default::default()
             },
-            |c: &[u8]| output.extend_from_slice(c), // No output needed since we're building an AST
+            |c: &[u8]| output.extend_from_slice(c),
         );
 
         rewriter.write(self.input.as_bytes()).unwrap();
