@@ -10,11 +10,23 @@ impl CliTreeRenderer {
                 attributes,
                 children,
             } => match name.as_str() {
-                "div" | "p" | "body" | "html" => {
+                "div" | "p" | "body" | "html" | "img" | "ul" => {
                     for node in children {
                         Self::render_tree(node, f)?;
-                        write!(f, "\n")?;
                     }
+                    write!(f, "\n")?;
+                }
+                "small" | "i" | "b" => {
+                    for node in children {
+                        Self::render_tree(node, f)?;
+                    }
+                }
+                "li" => {
+                    write!(f, "  - ")?;
+                    for node in children {
+                        Self::render_tree(node, f)?;
+                    }
+                    write!(f, "\n")?;
                 }
                 name if name.chars().nth(0).map(|c| c == 'h').unwrap_or(false)
                     && name
@@ -41,7 +53,6 @@ impl CliTreeRenderer {
                     )?;
                     for node in children {
                         Self::render_tree(node, f)?;
-                        write!(f, "\n")?;
                     }
                 }
                 "head" => {
@@ -49,7 +60,9 @@ impl CliTreeRenderer {
                         Self::render_tree(node, f)?;
                     }
                 }
-                "meta" | "style" => (),
+                "meta" | "style" | "link" => (),
+                "br" => write!(f, "\n")?,
+                "hr" => write!(f, "\n-------------------------\n")?,
                 "title" => {
                     write!(f, "Page Title: ")?;
                     for node in children {
