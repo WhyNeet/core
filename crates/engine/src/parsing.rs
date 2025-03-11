@@ -84,12 +84,9 @@ impl<'a> DocumentParser<'a> {
                     Ok(())
                 })],
                 document_content_handlers: vec![doc_text!(|t| {
-                    let text = t.as_str().trim_start();
+                    let text = util::strip_text_indent(t.as_str());
                     if text.len() > 0 {
-                        println!("text stripped: {:?}", util::strip_text_indent(text));
-                        builder
-                            .borrow_mut()
-                            .push_node(TreeNode::Text(util::strip_text_indent(text)));
+                        builder.borrow_mut().push_node(TreeNode::Text(text));
                     }
                     Ok(())
                 })],
