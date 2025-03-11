@@ -3,6 +3,8 @@ use std::{cell::RefCell, rc::Rc};
 use lol_html::{HtmlRewriter, Settings, doc_text, element, html_content::Element};
 use tree::TreeNode;
 
+use crate::util;
+
 pub struct AstBuilder {
     root: Vec<TreeNode>,
     stack: Vec<TreeNode>,
@@ -55,9 +57,15 @@ impl<'a> DocumentParser<'a> {
         let mut rewriter = HtmlRewriter::new(
             Settings {
                 element_content_handlers: vec![element!("*", |el: &mut Element| {
+                    let attributes = el
+                        .attributes()
+                        .iter()
+                        .map(|attr| (attr.name(), attr.value()))
+                        .collect();
+
                     let node = TreeNode::Node {
                         name: el.tag_name(),
-                        attributes: vec![],
+                        attributes,
                         children: vec![],
                     };
 
@@ -76,9 +84,13 @@ impl<'a> DocumentParser<'a> {
                     Ok(())
                 })],
                 document_content_handlers: vec![doc_text!(|t| {
-                    builder
-                        .borrow_mut()
-                        .push_node(TreeNode::Text(t.as_str().to_string()));
+                    let text = t.as_str().trim_start();
+                    if text.len() > 0 {
+                        println!("text stripped: {:?}", util::strip_text_indent(text));
+                        builder
+                            .borrow_mut()
+                            .push_node(TreeNode::Text(util::strip_text_indent(text)));
+                    }
                     Ok(())
                 })],
                 ..Default::default()
