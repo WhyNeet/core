@@ -1175,6 +1175,8 @@ dependencies = [
 name = "renderer"
 version = "0.1.0"
 dependencies = [
+ "anstyle",
+ "terminal-link",
  "tree",
 ]
 
@@ -1556,6 +1558,12 @@ dependencies = [
  "rustix",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "terminal-link"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "253bcead4f3aa96243b0f8fa46f9010e87ca23bd5d0c723d474ff1d2417bbdf8"
 
 [[package]]
 name = "thiserror"
